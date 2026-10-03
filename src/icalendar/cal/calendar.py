@@ -37,6 +37,11 @@ if TYPE_CHECKING:
         Journal,
         Todo,
     )
+    from icalendar.cal.busy_time import (
+        BusyTimeline,
+        ExpandedEvent,
+        RecurrenceExpander,
+    )
     from icalendar.compatibility import Self
     from icalendar.parser.ical.component import ComponentIcalParser
 
@@ -234,6 +239,57 @@ class Calendar(Component):
         Use :meth:`Component.add_component <icalendar.cal.component.Component.add_component>`.
         """
         return self.walk("VFREEBUSY")
+
+    def busy_timeline(
+        self,
+        start: date | datetime,
+        end: date | datetime,
+        events: Iterable[Event | ExpandedEvent] | Literal["calendar"] = (),
+        free_busy: Iterable[FreeBusy] | Literal["calendar"] = (),
+        expand: RecurrenceExpander | None = None,
+    ) -> BusyTimeline:
+        """Compute the actual free/busy timeline of this calendar over a window.
+
+        This is a convenience wrapper around
+        :func:`icalendar.cal.busy_time.busy_timeline` that feeds in every
+        ``VAVAILABILITY`` component of this calendar and adds the supplied
+        events and ``VFREEBUSY`` components. See that function for the full
+        semantics of ``PRIORITY``/``BUSYTYPE`` merging, event transparency,
+        cancellation and the half-open UTC result.
+
+        Parameters:
+            start: The inclusive start of the finite window.
+            end: The exclusive end of the finite window.
+            events: Extra scheduled events (``VEVENT`` components or
+                :class:`~icalendar.cal.busy_time.ExpandedEvent` objects) in
+                addition to the calendar's own events. Pass
+                ``events="calendar"`` to use this calendar's ``VEVENT``
+                components.
+            free_busy: Extra ``VFREEBUSY`` components in addition to the
+                calendar's own. Pass ``free_busy="calendar"`` to use them.
+            expand: A recurrence expander callback; defaults to
+                :func:`~icalendar.cal.busy_time.default_recurrence_expander`.
+
+        Returns:
+            :class:`~icalendar.cal.busy_time.BusyTimeline`
+        """
+        from icalendar.cal.busy_time import (
+            default_recurrence_expander,
+            busy_timeline,
+        )
+
+        if events == "calendar":  # type: ignore[comparison-overlap]
+            events = self.events
+        if free_busy == "calendar":  # type: ignore[comparison-overlap]
+            free_busy = self.freebusy
+        return busy_timeline(
+            start,
+            end,
+            availabilities=self.availabilities,
+            events=events,
+            free_busy=free_busy,
+            expand=expand or default_recurrence_expander,
+        )
 
     def get_used_tzids(self) -> set[str]:
         """The set of TZIDs in use.

@@ -5,6 +5,15 @@ These are the defined components.
 """
 
 from .alarm import Alarm
+from .busy_time import (
+    BusyPeriod,
+    BusySource,
+    BusyState,
+    BusyTimeline,
+    ExpandedEvent,
+    RecurrenceExpander,
+    busy_timeline,
+)
 from .availability import Availability
 from .available import Available
 from .calendar import Calendar
@@ -19,6 +28,13 @@ from .todo import Todo
 
 __all__ = [
     "Alarm",
+    "BusyPeriod",
+    "BusySource",
+    "BusyState",
+    "BusyTimeline",
+    "ExpandedEvent",
+    "RecurrenceExpander",
+    "busy_timeline",
     "Availability",
     "Available",
     "Calendar",
