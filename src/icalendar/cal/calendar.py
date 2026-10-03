@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast, overload
 
 from icalendar.attr import (
@@ -22,14 +23,16 @@ from icalendar.cal.component import Component
 from icalendar.cal.examples import get_example
 from icalendar.cal.timezone import Timezone
 from icalendar.error import IncompleteComponent
+from icalendar.parser.content_line import Contentlines
 from icalendar.parser.ical.calendar import CalendarIcalParser
+from icalendar.timezone import TZP
+from icalendar.timezone import timezone_context as create_timezone_context
+from icalendar.timezone import tzp as default_tzp
 from icalendar.version import __version__
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from datetime import date, datetime
-    from pathlib import Path
-
     from icalendar.cal import (
         Availability,
         Event,
@@ -88,6 +91,7 @@ class Calendar(Component):
         "DESCRIPTION",  # RFC 7986
         "NAME",  # RFC 7986
     )
+    _release_timezone_context_after_parse = True
 
     @classmethod
     def example(cls, name: str = "example") -> Calendar:
@@ -143,14 +147,28 @@ class Calendar(Component):
         return cls.from_ical(get_example("calendars", name))
 
     @classmethod
-    def _get_ical_parser(cls, st: str | bytes) -> ComponentIcalParser:
+    def _get_ical_parser(
+        cls,
+        st: str | bytes,
+        timezone_provider: TZP = default_tzp,
+    ) -> ComponentIcalParser:
         """Get the iCal parser for the given input string."""
-        return CalendarIcalParser(st, cls._get_component_factory(), cls.types_factory)
+        return CalendarIcalParser(
+            st,
+            cls._get_component_factory(),
+            cls.types_factory,
+            timezone_provider,
+        )
 
     @overload
     @classmethod
     def from_ical(
-        cls, st: str | bytes | Path, multiple: Literal[False] = False
+        cls,
+        st: str | bytes | Path,
+        multiple: Literal[False] = False,
+        timezone_context: TZP | None = None,
+        tzp: TZP | None = None,
+        context: TZP | None = None,
     ) -> Calendar: ...
 
     @overload
@@ -159,9 +177,25 @@ class Calendar(Component):
         cls, st: str | bytes | Path, multiple: Literal[True]
     ) -> list[Calendar]: ...
 
+    @overload
     @classmethod
     def from_ical(
-        cls, st: str | bytes | Path, multiple: bool = False
+        cls,
+        st: str | bytes | Path,
+        multiple: Literal[True],
+        timezone_context: TZP | None = None,
+        tzp: TZP | None = None,
+        context: TZP | None = None,
+    ) -> list[Calendar]: ...
+
+    @classmethod
+    def from_ical(
+        cls,
+        st: str | bytes | Path,
+        multiple: bool = False,
+        timezone_context: TZP | None = None,
+        tzp: TZP | None = None,
+        context: TZP | None = None,
     ) -> Calendar | list[Calendar]:
         """Parse iCalendar data into calendar instances.
 
@@ -169,13 +203,70 @@ class Calendar(Component):
             st: iCalendar data as bytes or string, or a path to an iCalendar file.
             multiple: If ``True``, returns a list of calendars.
                 If ``False``, returns a single calendar.
+            timezone_context: An isolated timezone context.
 
         Returns:
             Calendar or list of calendars.
         """
-        return cast(
-            "Calendar | list[Calendar]", super().from_ical(st, multiple=multiple)
-        )
+        timezone_provider = timezone_context or tzp or context
+        if isinstance(st, Path):
+            st = st.read_bytes()
+
+        content_lines = Contentlines.from_ical(st)
+        calendar_lines: list[list] = []
+        current_lines: list | None = None
+        depth = 0
+        for line in content_lines:
+            upper_line = line.upper()
+            if upper_line == "BEGIN:VCALENDAR":
+                depth += 1
+                if depth == 1:
+                    current_lines = [line]
+                if current_lines is not None and depth > 1:
+                    current_lines.append(line)
+                continue
+            elif upper_line == "END:VCALENDAR" and depth:
+                depth -= 1
+                if depth == 0 and current_lines is not None:
+                    current_lines.append(line)
+                    calendar_lines.append(current_lines)
+                    current_lines = None
+                elif current_lines is not None:
+                    current_lines.append(line)
+                continue
+            if current_lines is not None and depth:
+                current_lines.append(line)
+
+        components = []
+        own_context = timezone_provider is None
+        for lines in calendar_lines:
+            if own_context:
+                timezone_provider = create_timezone_context(default_tzp.name)
+            parser = cls._get_ical_parser(lines, timezone_provider)
+            components.append(parser.parse()[0])
+            if own_context and cls._release_timezone_context_after_parse:
+                timezone_provider.close()
+                timezone_provider = None
+
+        if not components:
+            parser = cls._get_ical_parser(content_lines)
+            components = parser.parse()
+
+        if multiple:
+            return cast("list[Calendar]", components)
+        if len(components) > 1:
+            raise ValueError(
+                cls._format_error(
+                    "Found multiple components where only one is allowed", st
+                )
+            )
+        if len(components) < 1:
+            raise ValueError(
+                cls._format_error(
+                    "Found no components where exactly one is required", st
+                )
+            )
+        return cast("Calendar", components[0])
 
     @property
     def events(self) -> list[Event]:

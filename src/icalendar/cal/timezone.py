@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING
@@ -53,7 +54,11 @@ class Timezone(Component):
         return cls.from_ical(get_example("timezones", name))
 
     @staticmethod
-    def _extract_offsets(component: TimezoneDaylight | TimezoneStandard, tzname: str):
+    def _extract_offsets(
+        component: TimezoneDaylight | TimezoneStandard,
+        tzname: str,
+        timezone_provider: TZP = tzp,
+    ):
         """extract offsets and transition times from a VTIMEZONE component
         :param component: a STANDARD or DAYLIGHT component
         :param tzname: the name of the zone
@@ -74,12 +79,13 @@ class Timezone(Component):
         if "RRULE" in component:
             # to be paranoid about correct weekdays
             # evaluate the rrule with the current offset
-            tzi = dateutil.tz.tzoffset("(offsetfrom)", offsetfrom)
-            rrstart = dtstart.replace(tzinfo=tzi)
-
-            rrulestr = component["RRULE"].to_ical().decode("utf-8")
-            rrule = dateutil.rrule.rrulestr(rrulestr, dtstart=rrstart)
-            tzp.fix_rrule_until(rrule, component["RRULE"])
+            rrule_text = component["RRULE"].to_ical().decode("utf-8")
+            rrulestr = re.sub(r"(UNTIL=[^;]+)Z", r"\1", rrule_text)
+            rrule = dateutil.rrule.rrulestr(rrulestr, dtstart=dtstart)
+            if getattr(rrule, "_until", None) is not None:
+                rrule._until = rrule._until.replace(tzinfo=None)  # noqa: SLF001
+            elif not {"UNTIL", "COUNT"}.intersection(component["RRULE"].keys()):
+                rrule._until = datetime(2038, 12, 31)  # noqa: SLF001
 
             # constructing the timezone requires UTC transition times.
             # here we construct local times without tzinfo, the offset to UTC
@@ -148,6 +154,7 @@ class Timezone(Component):
 
     def get_transitions(
         self,
+        timezone_provider: TZP = tzp,
     ) -> tuple[list[datetime], list[tuple[timedelta, timedelta, str]]]:
         """Return a tuple of (transition_times, transition_info)
 
@@ -177,7 +184,7 @@ class Timezone(Component):
                 tzname = self._make_unique_tzname(tzname, tznames)
 
             dst[tzname], component_transitions = self._extract_offsets(
-                component, tzname
+                component, tzname, timezone_provider
             )
             transitions.extend(component_transitions)
 

@@ -16,6 +16,10 @@ class InvalidCalendar(ValueError):
     """
 
 
+class TimezoneConflict(InvalidCalendar):
+    """A calendar contains incompatible definitions for one ``TZID``."""
+
+
 class ICalParsingError(InvalidCalendar):
     """Could not parse an iCalendar."""
 

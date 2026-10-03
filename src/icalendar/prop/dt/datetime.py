@@ -7,7 +7,7 @@ from icalendar.compatibility import Self
 from icalendar.error import JCalParsingError
 from icalendar.parser import Parameters
 from icalendar.parser_tools import to_unicode
-from icalendar.timezone import tzp
+from icalendar.timezone import TZP, tzp
 from icalendar.timezone.tzid import is_utc
 
 from .base import TimeBase
@@ -109,12 +109,12 @@ class vDatetime(TimeBase):
         return s.encode("utf-8")
 
     @staticmethod
-    def from_ical(ical, timezone=None):
+    def from_ical(ical, timezone=None, timezone_provider: TZP = tzp):
         """Create a datetime from the RFC string."""
         ical = to_unicode(ical)
         tzinfo = None
         if isinstance(timezone, str):
-            tzinfo = tzp.timezone(timezone)
+            tzinfo = timezone_provider.timezone(timezone)
         elif timezone is not None:
             tzinfo = timezone
 
@@ -136,11 +136,11 @@ class vDatetime(TimeBase):
                 int(ical_value[13:15]),  # second
             )
             if tzinfo:
-                return tzp.localize(datetime(*timetuple), tzinfo)
+                return timezone_provider.localize(datetime(*timetuple), tzinfo)
             if not ical_value[15:]:
                 return datetime(*timetuple)
             if ical_value[15:] == "Z":
-                return tzp.localize_utc(datetime(*timetuple))
+                return timezone_provider.localize_utc(datetime(*timetuple))
         except Exception as e:
             raise ValueError(f"Wrong datetime format: {ical}") from e
         raise ValueError(f"Wrong datetime format: {ical}")
@@ -183,7 +183,7 @@ class vDatetime(TimeBase):
         return dt
 
     @classmethod
-    def from_jcal(cls, jcal_property: list) -> Self:
+    def from_jcal(cls, jcal_property: list, timezone_provider: TZP = tzp) -> Self:
         """Parse jCal from :rfc:`7265`.
 
         Parameters:
@@ -197,7 +197,7 @@ class vDatetime(TimeBase):
         with JCalParsingError.reraise_with_path_added(3):
             dt = cls.parse_jcal_value(jcal_property[3])
         if params.tzid:
-            dt = tzp.localize(dt, params.tzid)
+            dt = timezone_provider.localize(dt, params.tzid)
         return cls(
             dt,
             params=params,

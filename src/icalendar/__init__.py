@@ -44,6 +44,7 @@ from icalendar.error import (
     InvalidCalendar,
     JCalParsingError,
     LocalTimezoneMissing,
+    TimezoneConflict,
 )
 
 # Parameters and helper methods for splitting and joining string with escaped
@@ -94,7 +95,13 @@ from icalendar.prop.image import Image
 
 # Switching the timezone provider
 from icalendar.prop.n import NFields
-from icalendar.timezone import is_utc, use_pytz, use_zoneinfo
+from icalendar.timezone import (
+    TimezoneContext,
+    is_utc,
+    timezone_context,
+    use_pytz,
+    use_zoneinfo,
+)
 
 from .version import __version__, __version_tuple__, version, version_tuple
 
@@ -141,8 +148,10 @@ __all__ = [
     "NFields",
     "Parameters",
     "Timezone",
+    "TimezoneContext",
     "TimezoneDaylight",
     "TimezoneStandard",
+    "TimezoneConflict",
     "Todo",
     "TypesFactory",
     "__version__",
@@ -150,6 +159,7 @@ __all__ = [
     "is_utc",
     "q_join",
     "q_split",
+    "timezone_context",
     "use_pytz",
     "use_zoneinfo",
     "vAdr",

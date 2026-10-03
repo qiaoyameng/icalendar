@@ -389,7 +389,7 @@ Since 6.0.0 by default, :mod:`zoneinfo` timezones are created.
 
     >>> dt = icalendar.Calendar.example("timezoned").events[0].start
     >>> dt.tzinfo
-    ZoneInfo(key='Europe/Vienna')
+    <tzicalvtz 'Europe/Vienna'>
 
 To continue to receive ``pytz`` timezones in parsed results, you can receive all the latest updates, and switch back to earlier behavior.
 

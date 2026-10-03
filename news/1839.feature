@@ -1,0 +1,1 @@
+Add isolated timezone contexts for calendar parsing so embedded VTIMEZONE definitions do not leak between files, preserve original TZID parameters, and raise a conflict for non-equivalent duplicate definitions.

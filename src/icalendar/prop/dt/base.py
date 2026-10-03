@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import ClassVar
 
 from icalendar.parser import Parameters
@@ -11,10 +11,26 @@ class TimeBase:
     params: Parameters
     ignore_for_equality = {"TZID", "VALUE"}
 
+    @staticmethod
+    def _datetime_matches(first, second) -> bool:
+        """Compare DATE-TIME values robustly around dateutil fold transitions."""
+        if first == second:
+            return True
+        if not (isinstance(first, datetime) and isinstance(second, datetime)):
+            return False
+        if first.tzinfo is None or second.tzinfo is None:
+            return False
+        return (
+            first.replace(tzinfo=None) == second.replace(tzinfo=None)
+            and first.utcoffset() == second.utcoffset()
+        )
+
     def __eq__(self, other):
         """self == other"""
         if isinstance(other, date):
-            return self.dt == other
+            if isinstance(self.dt, tuple):
+                return self.dt == other
+            return self._datetime_matches(self.dt, other) or self.dt == other
         if isinstance(other, TimeBase):
             default = object()
             for key in (
@@ -24,7 +40,7 @@ class TimeBase:
                     key, default
                 ) != other.params.get(key, default):
                     return False
-            return self.dt == other.dt
+            return self._datetime_matches(self.dt, other.dt) or self.dt == other.dt
         from .list import vDDDLists
 
         if isinstance(other, vDDDLists):

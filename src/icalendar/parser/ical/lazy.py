@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 from icalendar.parser.content_line import Contentline
+from icalendar.timezone import TZP, tzp
 
 from .component import ComponentIcalParser
 
@@ -12,7 +13,16 @@ if TYPE_CHECKING:
     from icalendar.cal.component import Component
 
 
-class LazyCalendarIcalParser(ComponentIcalParser):
+class _CalendarIcalParser(ComponentIcalParser):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._register_embedded_timezones = True
+
+    def prepare_components(self) -> None:
+        """Prepare the parsed components."""
+
+
+class LazyCalendarIcalParser(_CalendarIcalParser):
     """A parser for calendar components.
 
     Instead of parsing the components, LazyComponents are created.
@@ -68,12 +78,14 @@ class LazyCalendarIcalParser(ComponentIcalParser):
         self.component.add_component(
             LazySubcomponent(
                 component_name,
-                self.get_subcomponent_parser(content_lines),
+                self.get_subcomponent_parser(content_lines, self._tzp),
             )
         )
 
     def get_subcomponent_parser(
-        self, content_lines: list[Contentline]
+        self,
+        content_lines: list[Contentline],
+        timezone_provider: TZP = tzp,
     ) -> ComponentIcalParser:
         """Get the parser for a subcomponent.
 
@@ -81,7 +93,10 @@ class LazyCalendarIcalParser(ComponentIcalParser):
             content_lines: The content lines of the subcomponent.
         """
         return ComponentIcalParser(
-            content_lines, self._component_factory, self._types_factory
+            content_lines,
+            self._component_factory,
+            self._types_factory,
+            timezone_provider,
         )
 
     def prepare_components(self):

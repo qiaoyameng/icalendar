@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, ClassVar
 from icalendar.parser.content_line import Contentline, Contentlines
 from icalendar.parser.property import split_on_unescaped_comma
 from icalendar.prop import vBroken
-from icalendar.timezone import tzp
+from icalendar.timezone import TZP, tzp
 
 if TYPE_CHECKING:
     from icalendar.cal import Component, ComponentFactory
@@ -41,6 +41,7 @@ class ComponentIcalParser:
         data: bytes | str | list[Contentline],
         component_factory: ComponentFactory,
         types_factory: TypesFactory,
+        timezone_provider: TZP = tzp,
     ) -> None:
         """Initialize the parser with the raw data.
 
@@ -53,7 +54,8 @@ class ComponentIcalParser:
         self._data = data
         self._component_factory = component_factory
         self._types_factory = types_factory
-        self._tzp = tzp
+        self._tzp = timezone_provider
+        self._register_embedded_timezones = False
 
     _content_lines: list[Contentline]
 
@@ -124,7 +126,7 @@ class ComponentIcalParser:
         else:
             self._stack[-1].add_component(component)
         if vals.upper() == "VTIMEZONE" and "TZID" in component:
-            tzp.cache_timezone_component(component)
+            self._tzp.cache_timezone_component(component)
 
     def prepare_components(self) -> None:
         """Prepare the parsed components.
@@ -135,9 +137,52 @@ class ComponentIcalParser:
     def parse(self) -> list[Component]:
         """Parse the raw data."""
         self.initialize_parsing()
+        self.register_embedded_timezones()
         self.parse_content_lines()
         self.prepare_components()
         return self._components
+
+    def register_embedded_timezones(self) -> None:
+        """Register VTIMEZONE components before referencing properties parse."""
+        if not self._register_embedded_timezones:
+            return
+        root_component = None
+        component_stack: list[str] = []
+        index = 0
+        while index < len(self._content_lines):
+            line = self._content_lines[index].upper()
+            if line.startswith("BEGIN:"):
+                component_name = line[6:]
+                if not component_stack:
+                    root_component = component_name
+                if (
+                    root_component == "VCALENDAR"
+                    and len(component_stack) == 1
+                    and component_name == "VTIMEZONE"
+                ):
+                    start = index
+                    timezone_depth = 1
+                    index += 1
+                    while index < len(self._content_lines) and timezone_depth:
+                        nested_line = self._content_lines[index].upper()
+                        if nested_line == "BEGIN:VTIMEZONE":
+                            timezone_depth += 1
+                        elif nested_line == "END:VTIMEZONE":
+                            timezone_depth -= 1
+                        index += 1
+                    timezone_components = ComponentIcalParser(
+                        self._content_lines[start:index],
+                        self._component_factory,
+                        self._types_factory,
+                        self._tzp,
+                    ).parse()
+                    for timezone_component in timezone_components:
+                        self._tzp.cache_timezone_component(timezone_component)
+                    continue
+                component_stack.append(component_name)
+            elif line.startswith("END:") and component_stack:
+                component_stack.pop()
+            index += 1
 
     def parse_content_lines(self) -> None:
         """Parse the content lines."""
@@ -228,7 +273,7 @@ class ComponentIcalParser:
         factory = self.get_factory_for_property(name, params)
         try:
             if tzid:
-                parsed_val = factory.from_ical(val, tzid)
+                parsed_val = factory.from_ical(val, tzid, self._tzp)
             else:
                 parsed_val = factory.from_ical(val)
         except (ValueError, TypeError) as e:

@@ -34,7 +34,8 @@ from icalendar.parser import (
 from icalendar.parser.ical.component import ComponentIcalParser
 from icalendar.parser_tools import DEFAULT_ENCODING
 from icalendar.prop import VPROPERTY, TypesFactory, vDDDLists, vText, vUnknown
-from icalendar.timezone import tzp
+from icalendar.timezone import TZP, tzp
+from icalendar.timezone import timezone_context as create_timezone_context
 from icalendar.tools import is_date
 
 if TYPE_CHECKING:
@@ -537,9 +538,18 @@ class Component(CaselessDict):
     ) -> list[Component]: ...
 
     @classmethod
-    def _get_ical_parser(cls, st: str | bytes) -> ComponentIcalParser:
+    def _get_ical_parser(
+        cls,
+        st: str | bytes,
+        timezone_provider: TZP = tzp,
+    ) -> ComponentIcalParser:
         """Get the iCal parser for the given input string."""
-        return ComponentIcalParser(st, cls._get_component_factory(), cls.types_factory)
+        return ComponentIcalParser(
+            st,
+            cls._get_component_factory(),
+            cls.types_factory,
+            timezone_provider,
+        )
 
     @classmethod
     def from_ical(
@@ -982,7 +992,11 @@ class Component(CaselessDict):
         return json.dumps(self.to_jcal())
 
     @classmethod
-    def from_jcal(cls, jcal: str | list) -> Component:
+    def from_jcal(
+        cls,
+        jcal: str | list,
+        timezone_context: TZP | None = None,
+    ) -> Component:
         """Create a component from a jCal list.
 
         Parameters:
@@ -1034,7 +1048,22 @@ class Component(CaselessDict):
         # parses a single component (without its subcomponents); the stack walks
         # the subcomponent tree, accumulating the jCal error path ([2, i] per
         # nesting level) so error messages match the recursive implementation.
-        root, root_subcomponents = _node_from_jcal(jcal, cls)
+        timezone_provider = timezone_context or create_timezone_context(tzp.name)
+        for timezone_node in _jcal_timezones(jcal):
+            timezone_component = _component_tree_from_jcal(
+                timezone_node,
+                cls,
+                timezone_provider=timezone_provider,
+                resolve_timezone_properties=False,
+            )
+            if "TZID" in timezone_component:
+                timezone_provider.cache_timezone_component(timezone_component)
+        root, root_subcomponents = _node_from_jcal(
+            jcal,
+            cls,
+            timezone_provider=timezone_provider,
+            resolve_timezone_properties=True,
+        )
         stack: list[tuple[Component, list, list]] = [(root, root_subcomponents, [])]
         while stack:
             parent, subcomponents, prefix = stack.pop()
@@ -1045,10 +1074,15 @@ class Component(CaselessDict):
                 # traceback, like the nested context managers did before.
                 with JCalParsingError.reraise_with_path_added(*child_prefix):
                     child, child_subcomponents = _node_from_jcal(
-                        subcomponent, type(parent)
+                        subcomponent,
+                        type(parent),
+                        timezone_provider=timezone_provider,
+                        resolve_timezone_properties=True,
                     )
                 parent.subcomponents.append(child)
                 stack.append((child, child_subcomponents, child_prefix))
+        if timezone_context is None:
+            timezone_provider.close()
         return root
 
     def copy(self, recursive: bool = False) -> Self:
@@ -1117,7 +1151,30 @@ class Component(CaselessDict):
         return self
 
 
-def _node_from_jcal(jcal, starting_cls: type[Component]) -> tuple[Component, list]:
+def _jcal_timezones(jcal) -> list[list]:
+    """Return VTIMEZONE nodes from a jCal component tree."""
+    result = []
+    stack = [jcal]
+    while stack:
+        node = stack.pop()
+        if not isinstance(node, list) or len(node) != 3:
+            continue
+        if str(node[0]).upper() == "VTIMEZONE":
+            result.append(node)
+        subcomponents = node[2]
+        if isinstance(subcomponents, list):
+            stack.extend(
+                child for child in reversed(subcomponents) if isinstance(child, list)
+            )
+    return result
+
+
+def _node_from_jcal(
+    jcal,
+    starting_cls: type[Component],
+    timezone_provider: TZP = tzp,
+    resolve_timezone_properties: bool = True,
+) -> tuple[Component, list]:
     """Parse a single jCal component without recursing into subcomponents.
 
     Module-level helper for :meth:`Component.from_jcal`: it has no ties to a
@@ -1168,7 +1225,26 @@ def _node_from_jcal(jcal, starting_cls: type[Component]) -> tuple[Component, lis
             prop_name, prop_value
         )
         with JCalParsingError.reraise_with_path_added(1, i):
-            v_prop = prop_cls.from_jcal(prop)
+            if (
+                prop_name.upper()
+                in (
+                    "DTSTART",
+                    "DTEND",
+                    "RECURRENCE-ID",
+                    "DUE",
+                    "RDATE",
+                    "EXDATE",
+                    "FREEBUSY",
+                )
+                and resolve_timezone_properties
+                and prop_value in ("date-time", "time", "period", "date-time-list")
+            ):
+                v_prop = prop_cls.from_jcal(
+                    prop,
+                    timezone_provider=timezone_provider,
+                )
+            else:
+                v_prop = prop_cls.from_jcal(prop)
         # jCal encodes the value type in the type field (``prop[2]``)
         # instead of as a ``VALUE`` parameter (RFC 7265). Restore that
         # parameter when the type differs from the property's default, so
@@ -1194,6 +1270,34 @@ def _node_from_jcal(jcal, starting_cls: type[Component]) -> tuple[Component, lis
             value=subcomponents,
         )
     return component, subcomponents
+
+
+def _component_tree_from_jcal(
+    jcal,
+    starting_cls: type[Component],
+    timezone_provider: TZP = tzp,
+    resolve_timezone_properties: bool = False,
+) -> Component:
+    """Build a complete component tree from jCal."""
+    root, root_subcomponents = _node_from_jcal(
+        jcal,
+        starting_cls,
+        timezone_provider=timezone_provider,
+        resolve_timezone_properties=resolve_timezone_properties,
+    )
+    stack: list[tuple[Component, list]] = [(root, root_subcomponents)]
+    while stack:
+        parent, subcomponents = stack.pop()
+        for subcomponent in reversed(subcomponents):
+            child, child_subcomponents = _node_from_jcal(
+                subcomponent,
+                type(parent),
+                timezone_provider=timezone_provider,
+                resolve_timezone_properties=resolve_timezone_properties,
+            )
+            parent.subcomponents.append(child)
+            stack.append((child, child_subcomponents))
+    return root
 
 
 __all__ = ["Component"]

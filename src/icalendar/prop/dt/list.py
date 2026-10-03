@@ -6,6 +6,7 @@ from icalendar.compatibility import Self
 from icalendar.error import JCalParsingError
 from icalendar.parser import Parameters
 from icalendar.parser_tools import from_unicode
+from icalendar.timezone import TZP, tzp
 
 from .base import TimeBase
 from .types import vDDDTypes
@@ -46,11 +47,17 @@ class vDDDLists:
         return b",".join(dts_ical)
 
     @staticmethod
-    def from_ical(ical, timezone=None):
+    def from_ical(ical, timezone=None, timezone_provider: TZP = tzp):
         out = []
         ical_dates = ical.split(",")
         for ical_dt in ical_dates:
-            out.append(vDDDTypes.from_ical(ical_dt, timezone=timezone))
+            out.append(
+                vDDDTypes.from_ical(
+                    ical_dt,
+                    timezone=timezone,
+                    timezone_provider=timezone_provider,
+                )
+            )
         return out
 
     def __eq__(self, other):
@@ -84,7 +91,11 @@ class vDDDLists:
     from icalendar.param import VALUE
 
     @classmethod
-    def from_jcal(cls, jcal_property: list) -> Self:
+    def from_jcal(
+        cls,
+        jcal_property: list,
+        timezone_provider: TZP = tzp,
+    ) -> Self:
         """Parse jCal from :rfc:`7265`.
 
         Parameters:
@@ -98,7 +109,12 @@ class vDDDLists:
         prop = jcal_property[:3]
         dts = []
         for value in values:
-            dts.append(vDDDTypes.from_jcal(prop + [value]))
+            dts.append(
+                vDDDTypes.from_jcal(
+                    prop + [value],
+                    timezone_provider=timezone_provider,
+                )
+            )
         return cls(
             dts,
             params=Parameters.from_jcal_property(jcal_property),

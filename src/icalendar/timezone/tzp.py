@@ -4,6 +4,7 @@ import warnings
 from datetime import datetime, time
 from typing import TYPE_CHECKING, overload
 
+from icalendar.error import TimezoneConflict
 from icalendar.tools import to_datetime
 
 from .windows_to_olson import WINDOWS_TO_OLSON
@@ -48,7 +49,14 @@ class TZP:
     def _use(self, provider: TZProvider) -> None:
         """Use a timezone implementation."""
         self.__tz_cache = {}
+        self.__timezone_components = {}
+        self.__timezone_definitions = {}
         self.__provider = provider
+
+    @property
+    def provider(self) -> TZProvider:
+        """The timezone implementation used by this proxy."""
+        return self.__provider
 
     def use(self, provider: str | TZProvider) -> None:
         """Switch to a different timezone provider."""
@@ -109,18 +117,66 @@ class TZP:
         """
         _unclean_id = timezone_component["TZID"]
         _id = self.clean_timezone_id(_unclean_id)
-        if (
-            not self.__provider.knows_timezone_id(_id)
-            and not self.__provider.knows_timezone_id(_unclean_id)
-            and _id not in self.__tz_cache
-        ):
-            self.__tz_cache[_id] = timezone_component.to_tz(self, lookup_tzid=False)
+        existing = self.__timezone_components.get(_id)
+        if existing is not None:
+            if not self.timezone_components_equivalent(
+                existing,
+                timezone_component,
+                self,
+            ):
+                raise TimezoneConflict(
+                    f"The calendar contains multiple, non-equivalent VTIMEZONE "
+                    f"definitions for TZID {_unclean_id!r}."
+                )
+            return
+        use_embedded_definition = timezone_component.subcomponents or not (
+            self.__provider.knows_timezone_id(_id)
+            or self.__provider.knows_timezone_id(_unclean_id)
+        )
+        if use_embedded_definition:
+            self.__timezone_components[_id] = timezone_component
+            key = (self.__provider.name, timezone_component.to_ical())
+            tzinfo = self.__timezone_definitions.get(key)
+            if tzinfo is None:
+                tzinfo = self.create_timezone(timezone_component)
+                self.__timezone_definitions[key] = tzinfo
+            self.__tz_cache[_id] = tzinfo
+            if _unclean_id != _id:
+                self.__tz_cache[_unclean_id] = self.__tz_cache[_id]
+
+    @staticmethod
+    def timezone_components_equivalent(
+        first: Timezone.Timezone,
+        second: Timezone.Timezone,
+        timezone_provider: TZP | None = None,
+    ) -> bool:
+        """Whether two VTIMEZONE components define the same offsets."""
+        timezone_provider = timezone_provider or tzp
+        try:
+            first_definition = first.get_transitions(timezone_provider)
+            second_definition = second.get_transitions(timezone_provider)
+        except (TypeError, ValueError):
+            return first.to_ical() == second.to_ical()
+        return first_definition == second_definition
+
+    def close(self) -> None:
+        """Release timezones cached by this proxy."""
+        provider = self.__provider
+        self._use(provider)
+
+    def __enter__(self) -> TZP:
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
 
     def fix_rrule_until(self, rrule: rrule, ical_rrule: prop.vRecur) -> None:
         """Make sure the until value works."""
         self.__provider.fix_rrule_until(rrule, ical_rrule)
 
-    def create_timezone(self, timezone_component: Timezone.Timezone) -> datetime.tzinfo:
+    def create_timezone(
+        self, timezone_component: Timezone.Timezone
+    ) -> datetime.tzinfo:
         """Create a timezone from a timezone component.
 
         This component will not be cached.
@@ -150,9 +206,11 @@ class TZP:
         for lookup_id, is_global_guess in self._lookup_ids(tz_id):
             if primary is None:
                 primary = lookup_id
-            tz = self.__tz_cache.get(lookup_id) or self.__provider.timezone(lookup_id)
+            tz = self.__tz_cache.get(lookup_id)
+            if tz is None:
+                tz = self.__provider.timezone(lookup_id)
             if tz is not None:
-                if is_global_guess:
+                if is_global_guess and lookup_id not in self.__tz_cache:
                     from icalendar.error import GloballyUniqueTZIDGuessed
 
                     warnings.warn(
@@ -170,15 +228,15 @@ class TZP:
         """Yield ``(id, is_global_guess)`` tuples to try, best match first.
 
         1.  The cleaned ID, without any surrounding ``/``.
-        2.  The Olson name of a Windows timezone (for example,
+        3.  The Olson name of a Windows timezone (for example,
             ``W. Europe Standard Time`` -> ``Europe/Berlin``).
-        3.  For a "globally unique" TZID (:rfc:`5545#section-3.2.19`) of the
+        4.  For a "globally unique" TZID (:rfc:`5545#section-3.2.19`) of the
             form ``/<vendor>/<Olson/Name>``—emitted by clients such as
             libical, Evolution and Mozilla Lightning—the trailing Olson
             identifier, dropping vendor path components from the front. The
             longest suffix is tried first, so multi-part names such as
             ``America/Argentina/Buenos_Aires`` still match.
-        4.  The original, unmodified ID.
+        5.  The original, unmodified ID.
         """
         cleaned = self.clean_timezone_id(tz_id)
         yield cleaned, False
@@ -207,4 +265,15 @@ class TZP:
         return f"{self.__class__.__name__}({self.name!r})"
 
 
-__all__ = ["TZP"]
+class TimezoneContext(TZP):
+    """An isolated timezone lookup context for parsing one calendar."""
+
+
+def timezone_context(
+    provider: str | TZProvider = DEFAULT_TIMEZONE_PROVIDER,
+) -> TimezoneContext:
+    """Create an isolated timezone context."""
+    return TimezoneContext(provider)
+
+
+__all__ = ["TZP", "TimezoneContext", "timezone_context"]

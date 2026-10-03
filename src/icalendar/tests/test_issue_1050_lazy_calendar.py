@@ -9,6 +9,8 @@ See :issue:`1050`.
 
 from datetime import datetime
 
+from icalendar.timezone.tzid import tzid_from_dt
+
 import pytest
 
 from icalendar import Calendar, Event
@@ -73,7 +75,7 @@ def test_forward_timezone_reference(calendars):
     assert len(cal.events) == 1
     dtstart = cal.events[0]["DTSTART"].dt
     assert dtstart.tzinfo is not None
-    assert str(dtstart.tzinfo) == "Europe/Berlin"
+    assert tzid_from_dt(dtstart) == "Europe/Berlin"
 
 
 @pytest.mark.parametrize("access", ["none", "partial", "full"])

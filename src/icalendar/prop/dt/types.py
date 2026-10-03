@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
 
 from icalendar.error import JCalParsingError
 from icalendar.parser import Parameters
-from icalendar.timezone import tzp
+from icalendar.timezone import TZP, tzp
 from icalendar.tools import is_date, is_datetime, to_datetime
 
 from .base import TimeBase
@@ -89,27 +89,41 @@ class vDDDTypes(TimeBase):
         return self.to_property_type().to_ical()
 
     @classmethod
-    def from_ical(cls, ical, timezone=None):
+    def from_ical(cls, ical, timezone=None, timezone_provider: TZP = tzp):
         if isinstance(ical, cls):
             return ical.dt
         u = ical.upper()
         if u.startswith(("P", "-P", "+P")):
             return vDuration.from_ical(ical)
         if "/" in u:
-            return vPeriod.from_ical(ical, timezone=timezone)
+            return vPeriod.from_ical(
+                ical,
+                timezone=timezone,
+                timezone_provider=timezone_provider,
+            )
 
         if len(ical) in (15, 16):
-            return vDatetime.from_ical(ical, timezone=timezone)
+            return vDatetime.from_ical(
+                ical,
+                timezone=timezone,
+                timezone_provider=timezone_provider,
+            )
         if len(ical) == 8:
             if timezone:
-                tzinfo = tzp.timezone(timezone)
+                tzinfo = timezone_provider.timezone(timezone)
                 if tzinfo is not None:
                     # ``replace`` picks the first offset a pytz timezone knows,
                     # which is the local mean time one, so localize instead.
-                    return tzp.localize(to_datetime(vDate.from_ical(ical)), tzinfo)
+                    return timezone_provider.localize(
+                        to_datetime(vDate.from_ical(ical)), tzinfo
+                    )
             return vDate.from_ical(ical)
         if len(ical) in (6, 7):
-            return vTime.from_ical(ical, timezone=timezone)
+            return vTime.from_ical(
+                ical,
+                timezone=timezone,
+                timezone_provider=timezone_provider,
+            )
         raise ValueError(f"Expected datetime, date, or time. Got: '{ical}'")
 
     @property
@@ -152,10 +166,12 @@ class vDDDTypes(TimeBase):
                  time, date-time, duration, or period.
         """
         if isinstance(jcal, list):
-            return vPeriod.parse_jcal_value(jcal)
+            with JCalParsingError.reraise_with_path_added(3):
+                return vPeriod.parse_jcal_value(jcal)
         JCalParsingError.validate_value_type(jcal, str, cls)
         if "/" in jcal:
-            return vPeriod.parse_jcal_value(jcal)
+            with JCalParsingError.reraise_with_path_added(3):
+                return vPeriod.parse_jcal_value(jcal)
         for jcal_type in (vDatetime, vDate, vTime, vDuration):
             try:
                 return jcal_type.parse_jcal_value(jcal)
@@ -166,7 +182,11 @@ class vDDDTypes(TimeBase):
         )
 
     @classmethod
-    def from_jcal(cls, jcal_property: list) -> Self:
+    def from_jcal(
+        cls,
+        jcal_property: list,
+        timezone_provider: TZP = tzp,
+    ) -> Self:
         """Parse jCal from :rfc:`7265`.
 
         Parameters:
@@ -176,17 +196,20 @@ class vDDDTypes(TimeBase):
             ~error.JCalParsingError: If the provided jCal is invalid.
         """
         JCalParsingError.validate_property(jcal_property, cls)
+        params = Parameters.from_jcal_property(jcal_property)
         with JCalParsingError.reraise_with_path_added(3):
             dt = cls.parse_jcal_value(jcal_property[3])
-        params = Parameters.from_jcal_property(jcal_property)
         if params.tzid:
             if isinstance(dt, tuple):
                 # period
-                start = tzp.localize(dt[0], params.tzid)
-                end = tzp.localize(dt[1], params.tzid) if is_datetime(dt[1]) else dt[1]
+                start = timezone_provider.localize(dt[0], params.tzid)
+                if is_datetime(dt[1]):
+                    end = timezone_provider.localize(dt[1], params.tzid)
+                else:
+                    end = dt[1]
                 dt = (start, end)
             else:
-                dt = tzp.localize(dt, params.tzid)
+                dt = timezone_provider.localize(dt, params.tzid)
         return cls(
             dt,
             params=params,

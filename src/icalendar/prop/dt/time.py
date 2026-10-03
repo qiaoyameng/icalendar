@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 from icalendar.compatibility import Self
 from icalendar.error import JCalParsingError
 from icalendar.parser import Parameters
-from icalendar.timezone import tzp
+from icalendar.timezone import TZP, tzp
 from icalendar.timezone.tzid import is_utc
 
 from .base import TimeBase
@@ -153,7 +153,11 @@ class vTime(TimeBase):
         return self.params.is_utc() or is_utc(self.dt)
 
     @staticmethod
-    def from_ical(ical: str, timezone: str | None | tzinfo = None) -> time:
+    def from_ical(
+        ical: str,
+        timezone: str | None | tzinfo = None,
+        timezone_provider: TZP = tzp,
+    ) -> time:
         """Convert an ical string into a time.
 
         This method supports parsing the three forms of time values defined in :rfc:`5545#section-3.3.12`:
@@ -169,7 +173,7 @@ class vTime(TimeBase):
         """
         tzinfo = None
         if isinstance(timezone, str):
-            tzinfo = tzp.timezone(timezone)
+            tzinfo = timezone_provider.timezone(timezone)
         elif timezone is not None:
             tzinfo = timezone
 
@@ -188,9 +192,9 @@ class vTime(TimeBase):
         try:
             timetuple = (int(ical[:2]), int(ical[2:4]), int(ical[4:6]))
             if tzinfo:
-                return tzp.localize(time(*timetuple), tzinfo)
+                return timezone_provider.localize(time(*timetuple), tzinfo)
             if utc:
-                return tzp.localize_utc(time(*timetuple))
+                return timezone_provider.localize_utc(time(*timetuple))
             return time(*timetuple)
         except Exception as e:
             raise ValueError(f"Expected time, got: {ical}") from e
