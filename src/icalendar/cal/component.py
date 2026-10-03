@@ -981,6 +981,76 @@ class Component(CaselessDict):
         """
         return json.dumps(self.to_jcal())
 
+    def to_xcal(self) -> str:
+        """Return this component as an xCal XML string according to :rfc:`6321`.
+
+        Returns:
+            The xCal document as a Unicode string.
+
+        See also :meth:`to_xcal_bytes` and :meth:`from_xcal`.
+
+        Structured values such as ``PERIOD``, ``RECUR``, ``UTC-OFFSET`` and
+        ``BINARY`` are represented with the nested XML elements defined by
+        :rfc:`6321`, never as a single ``str()`` node. Unknown components and
+        X-properties round-trip using their names as element names.
+
+        Raises:
+            ~error.XCalSerializationError: If a value cannot be represented
+                in xCal, for example the reserved jCal ``unknown`` type or a
+                recurrence part without an xCal element.
+        """
+        from icalendar.xcal import component_to_xcal
+
+        return component_to_xcal(self)
+
+    def to_xcal_bytes(self) -> bytes:
+        """Return this component as a UTF-8 encoded xCal document.
+
+        See also :meth:`to_xcal`.
+        """
+        from icalendar.xcal import component_to_xcal_bytes
+
+        return component_to_xcal_bytes(self)
+
+    @classmethod
+    def from_xcal(
+        cls,
+        xcal: str | bytes,
+        *,
+        max_depth: int = 100,
+        max_text_size: int = 10 * 1024 * 1024,
+    ) -> Component:
+        """Create a component from an xCal XML document according to :rfc:`6321`.
+
+        Parameters:
+            xcal: The xCal XML document as a string or UTF-8 bytes.
+            max_depth: Maximum permitted XML element nesting depth.
+            max_text_size: Maximum permitted number of characters of text
+                data in the document.
+
+        Returns:
+            The parsed component. The actual component class is resolved
+            from the component element name, so unknown IANA- and
+            X-components round-trip.
+
+        Raises:
+            ~error.XCalParsingError: If the XML is malformed, uses external
+                resources, exceeds the limits, is not valid xCal, or uses a
+                value type that this library cannot convert.
+
+        The parser never resolves external entities or other external
+        resources. Text is XML-escaped by the XML layer; the iCalendar
+        backslash escaping is not applied.
+        """
+        from icalendar.xcal import xcal_to_component
+
+        return xcal_to_component(
+            xcal,
+            cls,
+            max_depth=max_depth,
+            max_text_size=max_text_size,
+        )
+
     @classmethod
     def from_jcal(cls, jcal: str | list) -> Component:
         """Create a component from a jCal list.

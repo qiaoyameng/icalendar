@@ -345,6 +345,37 @@ class JCalParsingError(InvalidCalendar):
             raise cls(f"The {kind} must be lowercase.", parser, path, value=name)
 
 
+class XCalError(InvalidCalendar):
+    """Common base class for errors in xCal conversion."""
+
+
+class XCalParsingError(XCalError):
+    """Could not parse an xCal document according to :rfc:`6321`.
+
+    This is raised for malformed XML, documents that use the wrong
+    namespace, xCal structures that do not match the schema, and for
+    value types that the parser does not know how to convert.
+    """
+
+
+class XCalSerializationError(XCalError):
+    """A component cannot be represented as :rfc:`6321` xCal.
+
+    This is raised when a value or recurrence part has no defined xCal
+    representation. The offending value is attached to the exception so
+    that callers can choose a strategy, for example dropping it or
+    serializing the calendar in another format.
+    """
+
+    def __init__(self, message: str, value: object = None) -> None:
+        self.message = message
+        self.value = value
+        full_message = message
+        if value is not None:
+            full_message += f" Got value: {value!r}"
+        super().__init__(full_message)
+
+
 __all__ = [
     "BrokenCalendarProperty",
     "ComponentEndMissing",
@@ -356,4 +387,7 @@ __all__ = [
     "InvalidCalendar",
     "JCalParsingError",
     "LocalTimezoneMissing",
+    "XCalError",
+    "XCalParsingError",
+    "XCalSerializationError",
 ]

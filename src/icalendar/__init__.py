@@ -96,6 +96,14 @@ from icalendar.prop.image import Image
 from icalendar.prop.n import NFields
 from icalendar.timezone import is_utc, use_pytz, use_zoneinfo
 
+from icalendar.xcal import (
+    XCalParsingError,
+    XCalSerializationError,
+    component_to_xcal,
+    component_to_xcal_bytes,
+    xcal_to_component,
+)
+
 from .version import __version__, __version_tuple__, version, version_tuple
 
 __all__ = [
@@ -183,4 +191,9 @@ __all__ = [
     "vXmlReference",
     "version",
     "version_tuple",
+    "XCalParsingError",
+    "XCalSerializationError",
+    "component_to_xcal",
+    "component_to_xcal_bytes",
+    "xcal_to_component",
 ]
