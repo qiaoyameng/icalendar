@@ -6,6 +6,12 @@ These are the defined components.
 
 from .alarm import Alarm
 from .availability import Availability
+from .availability_timeline import (
+    BusySource,
+    ExpandAvailable,
+    TimelineSegment,
+    availability_timeline,
+)
 from .available import Available
 from .calendar import Calendar
 from .component import Component
@@ -21,15 +27,19 @@ __all__ = [
     "Alarm",
     "Availability",
     "Available",
+    "BusySource",
     "Calendar",
     "Component",
     "ComponentFactory",
     "Event",
+    "ExpandAvailable",
     "FreeBusy",
     "Journal",
     "LazyCalendar",
+    "TimelineSegment",
     "Timezone",
     "TimezoneDaylight",
     "TimezoneStandard",
     "Todo",
+    "availability_timeline",
 ]
