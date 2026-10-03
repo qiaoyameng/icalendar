@@ -32,6 +32,12 @@ from icalendar.enums import (
     TRANSP,
     VALUE,
 )
+from icalendar.diff import (
+    PatchConflictError,
+    apply_patch,
+    calendar_digest,
+    diff_calendars,
+)
 from icalendar.error import (
     BrokenCalendarProperty,
     ComponentEndMissing,
@@ -140,6 +146,7 @@ __all__ = [
     "LocalTimezoneMissing",
     "NFields",
     "Parameters",
+    "PatchConflictError",
     "Timezone",
     "TimezoneDaylight",
     "TimezoneStandard",
@@ -147,6 +154,9 @@ __all__ = [
     "TypesFactory",
     "__version__",
     "__version_tuple__",
+    "apply_patch",
+    "calendar_digest",
+    "diff_calendars",
     "is_utc",
     "q_join",
     "q_split",
