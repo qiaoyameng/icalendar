@@ -1,0 +1,1 @@
+Added ``export_busy_time`` to publish a allow-list-based calendar that retains busy-time intervals and recurrence structures while replacing identifiers, removing private text, attachments, alarms, and unused timezone data.

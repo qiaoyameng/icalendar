@@ -2,6 +2,7 @@ from icalendar.alarms import (
     Alarms,
     AlarmTime,
 )
+from icalendar.busy_time import FloatingTimePolicy, export_busy_time
 from icalendar.cal import (
     Alarm,
     Availability,
@@ -126,6 +127,7 @@ __all__ = [
     "ComponentStartMissing",
     "Conference",
     "Event",
+    "FloatingTimePolicy",
     "FeatureWillBeRemovedInFutureVersion",
     "FreeBusy",
     "GloballyUniqueTZIDGuessed",
@@ -183,4 +185,5 @@ __all__ = [
     "vXmlReference",
     "version",
     "version_tuple",
+    "export_busy_time",
 ]

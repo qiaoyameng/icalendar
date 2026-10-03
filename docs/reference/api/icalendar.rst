@@ -20,6 +20,7 @@ Submodules
 
    icalendar.alarms
    icalendar.attr
+   icalendar.busy_time
    icalendar.caselessdict
    icalendar.cli
    icalendar.compatibility
