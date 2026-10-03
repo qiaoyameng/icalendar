@@ -20,6 +20,7 @@ from icalendar.attr import (
 )
 from icalendar.cal.component import Component
 from icalendar.cal.examples import get_example
+from icalendar.cal.recurring_event_split import split_recurring_event
 from icalendar.cal.timezone import Timezone
 from icalendar.error import IncompleteComponent
 from icalendar.parser.ical.calendar import CalendarIcalParser
@@ -234,6 +235,47 @@ class Calendar(Component):
         Use :meth:`Component.add_component <icalendar.cal.component.Component.add_component>`.
         """
         return self.walk("VFREEBUSY")
+
+    def split_recurring_event(
+        self,
+        uid: str | uuid.UUID,
+        recurrence_id: date | datetime,
+        new_uid: str | uuid.UUID,
+        *,
+        properties: dict[str, object] | None = None,
+        **event_properties: object,
+    ) -> tuple[Event, Event]:
+        """Split a recurring event into two independent event series.
+
+        The original UID keeps occurrences before ``recurrence_id``; the new
+        UID receives the split occurrence and all later occurrences. Existing
+        exceptions keep their original ``RECURRENCE-ID`` values. This only
+        changes local calendar data and never sends an invitation or changes
+        the calendar ``METHOD``.
+
+        Additional keyword arguments set public properties on the new master
+        event. Recurrence-identity and timing properties are not accepted here.
+
+        Parameters:
+            uid: UID of the existing recurring master and its exceptions.
+            recurrence_id: Original start of the split occurrence.
+            new_uid: UID to assign to the new master and future exceptions.
+            properties: Optional public properties for the new master.
+            **event_properties: Additional public properties for the new master.
+
+        Returns:
+            A tuple of the truncated old master and the new master event.
+
+        Raises:
+            InvalidCalendar: If the split is not valid or cannot be expressed
+                losslessly by the supported recurrence rules.
+        """
+        updates = {**(properties or {}), **event_properties}
+        return split_recurring_event(
+            self, uid, recurrence_id, new_uid, updates
+        )
+
+    split_event = split_recurring_event
 
     def get_used_tzids(self) -> set[str]:
         """The set of TZIDs in use.
