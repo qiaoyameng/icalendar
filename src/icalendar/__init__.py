@@ -44,6 +44,7 @@ from icalendar.error import (
     InvalidCalendar,
     JCalParsingError,
     LocalTimezoneMissing,
+    SemanticPatchConflict,
 )
 
 # Parameters and helper methods for splitting and joining string with escaped
@@ -94,6 +95,12 @@ from icalendar.prop.image import Image
 
 # Switching the timezone provider
 from icalendar.prop.n import NFields
+from icalendar.semantic_patch import (
+    apply_semantic_patch,
+    make_semantic_patch,
+    parse_semantic_calendar,
+    semantic_calendar_to_ical,
+)
 from icalendar.timezone import is_utc, use_pytz, use_zoneinfo
 
 from .version import __version__, __version_tuple__, version, version_tuple
@@ -150,6 +157,11 @@ __all__ = [
     "is_utc",
     "q_join",
     "q_split",
+    "SemanticPatchConflict",
+    "apply_semantic_patch",
+    "make_semantic_patch",
+    "parse_semantic_calendar",
+    "semantic_calendar_to_ical",
     "use_pytz",
     "use_zoneinfo",
     "vAdr",

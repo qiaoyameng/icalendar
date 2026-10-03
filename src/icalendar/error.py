@@ -72,6 +72,21 @@ class IncompleteAlarmInformation(ValueError):
     """The alarms cannot be calculated yet because information is missing."""
 
 
+class SemanticPatchConflict(ValueError):
+    """A semantic calendar patch cannot be applied to the current calendar.
+
+    The :attr:`conflicts` attribute contains JSON-serializable reports for all
+    failed preconditions. The target calendar is not modified when one or more
+    conflicts are present.
+    """
+
+    def __init__(self, conflicts: list[dict]) -> None:
+        self.conflicts = conflicts
+        count = len(conflicts)
+        first = conflicts[0].get("message", "Precondition failed") if conflicts else ""
+        super().__init__(f"{count} semantic patch conflict(s): {first}")
+
+
 class LocalTimezoneMissing(IncompleteAlarmInformation):
     """We are missing the local timezone to compute the value.
 
