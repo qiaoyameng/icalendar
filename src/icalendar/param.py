@@ -406,7 +406,7 @@ def boolean_parameter(name: str, default: bool) -> property:
         name,
         "",
         default=_default,
-        convert=lambda x: x.upper() == "TRUE",
+        convert=lambda x: x if isinstance(x, bool) else x.upper() == "TRUE",
         convert_to=lambda x: "TRUE" if x else "FALSE",
     )
 

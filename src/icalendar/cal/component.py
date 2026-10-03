@@ -981,6 +981,18 @@ class Component(CaselessDict):
         """
         return json.dumps(self.to_jcal())
 
+    def to_xcal_element(self):
+        """Return this component as an :rfc:`6321` xCal element."""
+        from icalendar.xcal import component_to_xcal_element
+
+        return component_to_xcal_element(self)
+
+    def to_xcal(self, *, xml_declaration: bool = False) -> bytes:
+        """Return this component as :rfc:`6321` xCal XML bytes."""
+        from icalendar.xcal import component_to_xcal
+
+        return component_to_xcal(self, xml_declaration=xml_declaration)
+
     @classmethod
     def from_jcal(cls, jcal: str | list) -> Component:
         """Create a component from a jCal list.
@@ -1050,6 +1062,36 @@ class Component(CaselessDict):
                 parent.subcomponents.append(child)
                 stack.append((child, child_subcomponents, child_prefix))
         return root
+
+    @classmethod
+    def from_xcal(
+        cls,
+        xcal: str | bytes | Path,
+        *,
+        max_depth: int | None = None,
+        max_text_size: int | None = None,
+    ) -> Component:
+        """Create a component from an :rfc:`6321` xCal XML document.
+
+        Parameters:
+            xcal: xCal XML as bytes or text.
+            max_depth: Maximum accepted XML nesting depth.
+            max_text_size: Maximum accepted XML character-data size.
+        """
+        from icalendar.xcal import (
+            DEFAULT_MAX_DEPTH,
+            DEFAULT_MAX_TEXT_SIZE,
+            component_from_xcal,
+        )
+
+        return component_from_xcal(
+            xcal,
+            starting_cls=cls,
+            max_depth=DEFAULT_MAX_DEPTH if max_depth is None else max_depth,
+            max_text_size=(
+                DEFAULT_MAX_TEXT_SIZE if max_text_size is None else max_text_size
+            ),
+        )
 
     def copy(self, recursive: bool = False) -> Self:
         """Copy the component.

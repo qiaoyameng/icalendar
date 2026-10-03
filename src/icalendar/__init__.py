@@ -18,6 +18,8 @@ from icalendar.cal import (
     TimezoneStandard,
     Todo,
 )
+from icalendar.xcal import XCalParsingError
+
 from icalendar.enums import (
     BUSYTYPE,
     CLASS,
@@ -181,6 +183,7 @@ __all__ = [
     "vUri",
     "vWeekday",
     "vXmlReference",
+    "XCalParsingError",
     "version",
     "version_tuple",
 ]

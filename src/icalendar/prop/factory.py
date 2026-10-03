@@ -239,8 +239,10 @@ class TypesFactory(CaselessDict):
         # Only use VALUE parameter for known properties that support multiple value
         # types (like DTSTART, DTEND, etc. which can be DATE or DATE-TIME)
         # For unknown/custom properties, always use the default type from types_map
-        if value_param and name in self.types_map and value_param in self:
-            return self[value_param]
+        if value_param and name in self.types_map:
+            internal_type = self.types_map[name]
+            if str(getattr(self[internal_type], "default_value", "")).lower() == value_param.lower():
+                return self[internal_type]
 
         if value_param and (value_param in self) and value_param != "IMAGE":
             return self[value_param]
