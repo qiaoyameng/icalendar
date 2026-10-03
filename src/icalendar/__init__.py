@@ -184,3 +184,15 @@ __all__ = [
     "version",
     "version_tuple",
 ]
+
+from icalendar.itip import (
+    AuthenticatedSender,
+    ITIPAction,
+    ITIPMerger,
+    ITIPMessage,
+    ITIPMethod,
+    ITIPReport,
+    merge_itip_message,
+    merge_itip_messages,
+    message_from_calendar,
+)
