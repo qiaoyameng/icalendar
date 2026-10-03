@@ -2,17 +2,30 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, ClassVar
 
+from icalendar.error import TimezoneDefinitionConflict
 from icalendar.parser.content_line import Contentline, Contentlines
 from icalendar.parser.property import split_on_unescaped_comma
 from icalendar.prop import vBroken
-from icalendar.timezone import tzp
+from icalendar.timezone import get_tzp
 
 if TYPE_CHECKING:
     from icalendar.cal import Component, ComponentFactory
     from icalendar.parser.parameter import Parameters
     from icalendar.prop import VPROPERTY, TypesFactory
+    from icalendar.timezone import TZP
+
+
+def _timezones_equal(component1: Component, component2: Component, tzp: TZP) -> bool:
+    """Whether two VTIMEZONE components define equivalent UTC offsets."""
+    tz1 = tzp.create_timezone(component1)
+    tz2 = tzp.create_timezone(component2)
+    sample_datetimes = (
+        datetime(year, month, 1) for year in range(1970, 2039) for month in range(1, 13)
+    )
+    return all(tz1.utcoffset(dt) == tz2.utcoffset(dt) for dt in sample_datetimes)
 
 
 class ComponentIcalParser:
@@ -41,6 +54,7 @@ class ComponentIcalParser:
         data: bytes | str | list[Contentline],
         component_factory: ComponentFactory,
         types_factory: TypesFactory,
+        tzp: TZP | None = None,
     ) -> None:
         """Initialize the parser with the raw data.
 
@@ -49,11 +63,21 @@ class ComponentIcalParser:
                 or a list of content lines.
             component_factory: The factory to use for creating components.
             types_factory: The factory to use for creating property values.
+            tzp: An optional timezone parsing context. If given, custom
+                timezones from ``VTIMEZONE`` components are cached
+                privately in this context and timezone lookups during
+                this parse resolve against it first. If ``None``, the
+                currently active context or the shared default is used.
         """
         self._data = data
         self._component_factory = component_factory
         self._types_factory = types_factory
         self._tzp = tzp
+
+    @property
+    def tzp(self) -> TZP:
+        """The timezone parsing context used for this parse."""
+        return self._tzp if self._tzp is not None else get_tzp()
 
     _content_lines: list[Contentline]
 
@@ -78,6 +102,7 @@ class ComponentIcalParser:
     def initialize_parsing(self):
         self._stack: list[Component] = []
         self._components: list[Component] = []
+        self._timezone_components: dict[str, Component] = {}
         self._data = self._content_lines = (
             self._data
             if isinstance(self._data, list)
@@ -124,7 +149,27 @@ class ComponentIcalParser:
         else:
             self._stack[-1].add_component(component)
         if vals.upper() == "VTIMEZONE" and "TZID" in component:
-            tzp.cache_timezone_component(component)
+            self.register_timezone_component(component)
+
+    def register_timezone_component(self, component: Component) -> None:
+        """Register a parsed VTIMEZONE component with the active context.
+
+        The timezone is cached privately in the parsing context so that
+        later properties referencing its TZID resolve to this calendar's
+        own definition. If the same TZID was already defined earlier in
+        this parse with a non-equivalent definition, a
+        :class:`~icalendar.error.TimezoneDefinitionConflict` is raised.
+        """
+        tzp = self.tzp
+        tzid = tzp.clean_timezone_id(str(component["TZID"]))
+        previous = self._timezone_components.get(tzid)
+        if previous is not None and not _timezones_equal(previous, component, tzp):
+            raise TimezoneDefinitionConflict(
+                f"Conflicting VTIMEZONE definitions for TZID {tzid!r} "
+                "in the same calendar."
+            )
+        self._timezone_components[tzid] = component
+        tzp.cache_timezone_component(component)
 
     def prepare_components(self) -> None:
         """Prepare the parsed components.
@@ -135,8 +180,13 @@ class ComponentIcalParser:
     def parse(self) -> list[Component]:
         """Parse the raw data."""
         self.initialize_parsing()
-        self.parse_content_lines()
-        self.prepare_components()
+        if self._tzp is None:
+            self.parse_content_lines()
+            self.prepare_components()
+        else:
+            with self._tzp:
+                self.parse_content_lines()
+                self.prepare_components()
         return self._components
 
     def parse_content_lines(self) -> None:

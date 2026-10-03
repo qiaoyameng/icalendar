@@ -7,7 +7,7 @@ from icalendar.compatibility import Self
 from icalendar.error import JCalParsingError
 from icalendar.parser import Parameters
 from icalendar.parser_tools import to_unicode
-from icalendar.timezone import tzp
+from icalendar.timezone import get_tzp
 from icalendar.timezone.tzid import is_utc
 
 from .base import TimeBase
@@ -114,7 +114,7 @@ class vDatetime(TimeBase):
         ical = to_unicode(ical)
         tzinfo = None
         if isinstance(timezone, str):
-            tzinfo = tzp.timezone(timezone)
+            tzinfo = get_tzp().timezone(timezone)
         elif timezone is not None:
             tzinfo = timezone
 
@@ -136,11 +136,11 @@ class vDatetime(TimeBase):
                 int(ical_value[13:15]),  # second
             )
             if tzinfo:
-                return tzp.localize(datetime(*timetuple), tzinfo)
+                return get_tzp().localize(datetime(*timetuple), tzinfo)
             if not ical_value[15:]:
                 return datetime(*timetuple)
             if ical_value[15:] == "Z":
-                return tzp.localize_utc(datetime(*timetuple))
+                return get_tzp().localize_utc(datetime(*timetuple))
         except Exception as e:
             raise ValueError(f"Wrong datetime format: {ical}") from e
         raise ValueError(f"Wrong datetime format: {ical}")
@@ -179,7 +179,7 @@ class vDatetime(TimeBase):
         except ValueError as e:
             raise JCalParsingError("Cannot parse date-time.", cls, value=jcal) from e
         if utc:
-            return tzp.localize_utc(dt)
+            return get_tzp().localize_utc(dt)
         return dt
 
     @classmethod
@@ -197,7 +197,7 @@ class vDatetime(TimeBase):
         with JCalParsingError.reraise_with_path_added(3):
             dt = cls.parse_jcal_value(jcal_property[3])
         if params.tzid:
-            dt = tzp.localize(dt, params.tzid)
+            dt = get_tzp().localize(dt, params.tzid)
         return cls(
             dt,
             params=params,

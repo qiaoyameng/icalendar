@@ -18,7 +18,7 @@ from icalendar.attr import (
 from icalendar.cal.component import Component
 from icalendar.cal.examples import get_example
 from icalendar.prop import vUTCOffset
-from icalendar.timezone import TZP, tzp
+from icalendar.timezone import TZP, get_tzp, tzp
 from icalendar.timezone.tzid import tzid_from_tzinfo
 from icalendar.tools import to_datetime
 
@@ -79,7 +79,7 @@ class Timezone(Component):
 
             rrulestr = component["RRULE"].to_ical().decode("utf-8")
             rrule = dateutil.rrule.rrulestr(rrulestr, dtstart=rrstart)
-            tzp.fix_rrule_until(rrule, component["RRULE"])
+            get_tzp().fix_rrule_until(rrule, component["RRULE"])
 
             # constructing the timezone requires UTC transition times.
             # here we construct local times without tzinfo, the offset to UTC

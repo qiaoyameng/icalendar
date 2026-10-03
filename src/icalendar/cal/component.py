@@ -34,13 +34,14 @@ from icalendar.parser import (
 from icalendar.parser.ical.component import ComponentIcalParser
 from icalendar.parser_tools import DEFAULT_ENCODING
 from icalendar.prop import VPROPERTY, TypesFactory, vDDDLists, vText, vUnknown
-from icalendar.timezone import tzp
+from icalendar.timezone import get_tzp
 from icalendar.tools import is_date
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from icalendar.compatibility import Self
+    from icalendar.timezone import TZP
 
 _marker = []
 
@@ -347,7 +348,7 @@ class Component(CaselessDict):
             "last-modified",
         ):
             # RFC expects UTC for those... force value conversion.
-            value = tzp.localize_utc(value)
+            value = get_tzp().localize_utc(value)
 
         # encode value
         if (
@@ -527,23 +528,39 @@ class Component(CaselessDict):
     @overload
     @classmethod
     def from_ical(
-        cls, st: str | bytes | Path, multiple: Literal[False] = False
+        cls,
+        st: str | bytes | Path,
+        multiple: Literal[False] = False,
+        *,
+        tzp: TZP | None = None,
     ) -> Component: ...
 
     @overload
     @classmethod
     def from_ical(
-        cls, st: str | bytes | Path, multiple: Literal[True]
+        cls,
+        st: str | bytes | Path,
+        multiple: Literal[True],
+        *,
+        tzp: TZP | None = None,
     ) -> list[Component]: ...
 
     @classmethod
-    def _get_ical_parser(cls, st: str | bytes) -> ComponentIcalParser:
+    def _get_ical_parser(
+        cls, st: str | bytes, tzp: TZP | None = None
+    ) -> ComponentIcalParser:
         """Get the iCal parser for the given input string."""
-        return ComponentIcalParser(st, cls._get_component_factory(), cls.types_factory)
+        return ComponentIcalParser(
+            st, cls._get_component_factory(), cls.types_factory, tzp=tzp
+        )
 
     @classmethod
     def from_ical(
-        cls, st: str | bytes | Path, multiple: bool = False
+        cls,
+        st: str | bytes | Path,
+        multiple: bool = False,
+        *,
+        tzp: TZP | None = None,
     ) -> Component | list[Component]:
         """Parse iCalendar data into component instances.
 
@@ -553,6 +570,11 @@ class Component(CaselessDict):
             st: iCalendar data as bytes or string, or a path to an iCalendar file as
                 :class:`pathlib.Path`.
             multiple: If ``True``, returns list. If ``False``, returns single component.
+            tzp: An optional timezone parsing context. If given, custom
+                timezones from ``VTIMEZONE`` components are cached privately
+                in this context and do not leak into the shared default or
+                other calendars. If ``None``, the currently active context
+                or the shared default is used.
 
         Returns:
             Component or list of components
@@ -562,7 +584,7 @@ class Component(CaselessDict):
         """
         if isinstance(st, Path):
             st = st.read_bytes()
-        parser = cls._get_ical_parser(st)
+        parser = cls._get_ical_parser(st, tzp=tzp)
         components = parser.parse()
         if multiple:
             return components

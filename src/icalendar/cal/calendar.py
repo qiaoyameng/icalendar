@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     )
     from icalendar.compatibility import Self
     from icalendar.parser.ical.component import ComponentIcalParser
+    from icalendar.timezone import TZP
 
 
 DEFAULT_PRODID = f"-//collective//icalendar//{__version__}//EN"
@@ -143,25 +144,41 @@ class Calendar(Component):
         return cls.from_ical(get_example("calendars", name))
 
     @classmethod
-    def _get_ical_parser(cls, st: str | bytes) -> ComponentIcalParser:
+    def _get_ical_parser(
+        cls, st: str | bytes, tzp: TZP | None = None
+    ) -> ComponentIcalParser:
         """Get the iCal parser for the given input string."""
-        return CalendarIcalParser(st, cls._get_component_factory(), cls.types_factory)
+        return CalendarIcalParser(
+            st, cls._get_component_factory(), cls.types_factory, tzp=tzp
+        )
 
     @overload
     @classmethod
     def from_ical(
-        cls, st: str | bytes | Path, multiple: Literal[False] = False
+        cls,
+        st: str | bytes | Path,
+        multiple: Literal[False] = False,
+        *,
+        tzp: TZP | None = None,
     ) -> Calendar: ...
 
     @overload
     @classmethod
     def from_ical(
-        cls, st: str | bytes | Path, multiple: Literal[True]
+        cls,
+        st: str | bytes | Path,
+        multiple: Literal[True],
+        *,
+        tzp: TZP | None = None,
     ) -> list[Calendar]: ...
 
     @classmethod
     def from_ical(
-        cls, st: str | bytes | Path, multiple: bool = False
+        cls,
+        st: str | bytes | Path,
+        multiple: bool = False,
+        *,
+        tzp: TZP | None = None,
     ) -> Calendar | list[Calendar]:
         """Parse iCalendar data into calendar instances.
 
@@ -169,12 +186,19 @@ class Calendar(Component):
             st: iCalendar data as bytes or string, or a path to an iCalendar file.
             multiple: If ``True``, returns a list of calendars.
                 If ``False``, returns a single calendar.
+            tzp: An optional timezone parsing context. If given, custom
+                timezones from ``VTIMEZONE`` components are cached privately
+                in this context, so calendars using the same TZID for
+                different definitions do not influence each other.
+                If ``None``, the currently active context or the shared
+                default is used.
 
         Returns:
             Calendar or list of calendars.
         """
         return cast(
-            "Calendar | list[Calendar]", super().from_ical(st, multiple=multiple)
+            "Calendar | list[Calendar]",
+            super().from_ical(st, multiple=multiple, tzp=tzp),
         )
 
     @property

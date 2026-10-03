@@ -25,7 +25,7 @@ from icalendar.prop import (
 )
 from icalendar.prop.conference import Conference
 from icalendar.prop.image import Image
-from icalendar.timezone import tzp
+from icalendar.timezone import get_tzp
 from icalendar.tools import is_date
 
 if TYPE_CHECKING:
@@ -467,7 +467,7 @@ def single_utc_property(name: str, docs: str) -> property:
             value = getattr(dt, "dt", dt)
         if value is None or not isinstance(value, date):
             raise InvalidCalendar(f"{name} must be a datetime in UTC, not {value}")
-        return tzp.localize_utc(value)
+        return get_tzp().localize_utc(value)
 
     def fset(self: Component, value: datetime | None):
         """Set the value"""
@@ -477,7 +477,7 @@ def single_utc_property(name: str, docs: str) -> property:
         if not isinstance(value, date):
             raise TypeError(f"{name} takes a datetime in UTC, not {value}")
         fdel(self)
-        self.add(name, tzp.localize_utc(value))
+        self.add(name, get_tzp().localize_utc(value))
 
     def fdel(self: Component):
         """Delete the property."""

@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 from icalendar.compatibility import Self
 from icalendar.error import JCalParsingError
 from icalendar.parser import Parameters
-from icalendar.timezone import tzp
+from icalendar.timezone import get_tzp
 from icalendar.timezone.tzid import is_utc
 
 from .base import TimeBase
@@ -169,7 +169,7 @@ class vTime(TimeBase):
         """
         tzinfo = None
         if isinstance(timezone, str):
-            tzinfo = tzp.timezone(timezone)
+            tzinfo = get_tzp().timezone(timezone)
         elif timezone is not None:
             tzinfo = timezone
 
@@ -188,9 +188,9 @@ class vTime(TimeBase):
         try:
             timetuple = (int(ical[:2]), int(ical[2:4]), int(ical[4:6]))
             if tzinfo:
-                return tzp.localize(time(*timetuple), tzinfo)
+                return get_tzp().localize(time(*timetuple), tzinfo)
             if utc:
-                return tzp.localize_utc(time(*timetuple))
+                return get_tzp().localize_utc(time(*timetuple))
             return time(*timetuple)
         except Exception as e:
             raise ValueError(f"Expected time, got: {ical}") from e

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
 
 from icalendar.error import JCalParsingError
 from icalendar.parser import Parameters
-from icalendar.timezone import tzp
+from icalendar.timezone import get_tzp
 from icalendar.tools import is_date, is_datetime, to_datetime
 
 from .base import TimeBase
@@ -102,11 +102,11 @@ class vDDDTypes(TimeBase):
             return vDatetime.from_ical(ical, timezone=timezone)
         if len(ical) == 8:
             if timezone:
-                tzinfo = tzp.timezone(timezone)
+                tzinfo = get_tzp().timezone(timezone)
                 if tzinfo is not None:
                     # ``replace`` picks the first offset a pytz timezone knows,
                     # which is the local mean time one, so localize instead.
-                    return tzp.localize(to_datetime(vDate.from_ical(ical)), tzinfo)
+                    return get_tzp().localize(to_datetime(vDate.from_ical(ical)), tzinfo)
             return vDate.from_ical(ical)
         if len(ical) in (6, 7):
             return vTime.from_ical(ical, timezone=timezone)
@@ -182,11 +182,11 @@ class vDDDTypes(TimeBase):
         if params.tzid:
             if isinstance(dt, tuple):
                 # period
-                start = tzp.localize(dt[0], params.tzid)
-                end = tzp.localize(dt[1], params.tzid) if is_datetime(dt[1]) else dt[1]
+                start = get_tzp().localize(dt[0], params.tzid)
+                end = get_tzp().localize(dt[1], params.tzid) if is_datetime(dt[1]) else dt[1]
                 dt = (start, end)
             else:
-                dt = tzp.localize(dt, params.tzid)
+                dt = get_tzp().localize(dt, params.tzid)
         return cls(
             dt,
             params=params,

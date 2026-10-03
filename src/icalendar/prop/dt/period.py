@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 from icalendar.compatibility import Self
 from icalendar.error import JCalParsingError
 from icalendar.parser import Parameters
-from icalendar.timezone import tzp
+from icalendar.timezone import get_tzp
 from icalendar.tools import is_date, is_datetime, is_pytz, normalize_pytz, to_datetime
 
 from .base import TimeBase
@@ -280,9 +280,9 @@ class vPeriod(TimeBase):
         tzid = params.tzid
 
         if tzid:
-            start = tzp.localize(start, tzid)
+            start = get_tzp().localize(start, tzid)
             if is_datetime(end_or_duration):
-                end_or_duration = tzp.localize(end_or_duration, tzid)
+                end_or_duration = get_tzp().localize(end_or_duration, tzid)
 
         return cls((start, end_or_duration), params=params)
 

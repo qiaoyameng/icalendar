@@ -44,6 +44,7 @@ from icalendar.error import (
     InvalidCalendar,
     JCalParsingError,
     LocalTimezoneMissing,
+    TimezoneDefinitionConflict,
 )
 
 # Parameters and helper methods for splitting and joining string with escaped
@@ -141,6 +142,7 @@ __all__ = [
     "NFields",
     "Parameters",
     "Timezone",
+    "TimezoneDefinitionConflict",
     "TimezoneDaylight",
     "TimezoneStandard",
     "Todo",

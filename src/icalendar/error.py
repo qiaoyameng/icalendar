@@ -16,6 +16,16 @@ class InvalidCalendar(ValueError):
     """
 
 
+class TimezoneDefinitionConflict(InvalidCalendar):
+    """Two VTIMEZONE components with the same TZID define different timezones.
+
+    This is raised when a single iCalendar stream contains multiple
+    ``VTIMEZONE`` components for the same ``TZID`` whose definitions are
+    not equivalent, so events referencing that ``TZID`` would be
+    ambiguous.
+    """
+
+
 class ICalParsingError(InvalidCalendar):
     """Could not parse an iCalendar."""
 

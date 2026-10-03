@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from contextvars import ContextVar, Token
 from datetime import datetime, time
 from typing import TYPE_CHECKING, overload
 
@@ -20,6 +21,11 @@ if TYPE_CHECKING:
 
 DEFAULT_TIMEZONE_PROVIDER = "zoneinfo"
 
+_CURRENT_TZP: ContextVar[TZP | None] = ContextVar(
+    "icalendar_current_timezone_provider", default=None
+)
+"""The timezone provider of the currently active parsing context, if any."""
+
 
 class TZP:
     """This is the timezone provider proxy.
@@ -27,11 +33,55 @@ class TZP:
     If you would like to have another timezone implementation,
     you can create a new one and pass it to this proxy.
     All of icalendar will then use this timezone implementation.
+
+    A ``TZP`` instance also serves as an isolated timezone parsing
+    context. Timezones created from ``VTIMEZONE`` components are cached
+    privately per instance, so two calendars that define the same
+    ``TZID`` differently do not influence each other when each is parsed
+    with its own instance. Use it as a context manager or pass it to
+    :meth:`icalendar.Calendar.from_ical` via the ``tzp`` parameter:
+
+    .. code-block:: python
+
+        from icalendar import Calendar
+        from icalendar.timezone import TZP
+
+        with TZP() as tzp:
+            calendar = Calendar.from_ical(ics_data, tzp=tzp)
+        tzp.release()  # free the privately cached timezones
+
+    The module-level :data:`icalendar.timezone.tzp` instance remains the
+    shared default used when no explicit context is given.
     """
 
     def __init__(self, provider: str | TZProvider = DEFAULT_TIMEZONE_PROVIDER) -> None:
         """Create a new timezone implementation proxy."""
+        self.__context_tokens: list[Token] = []
         self.use(provider)
+
+    def __enter__(self) -> TZP:
+        """Activate this provider as the current timezone parsing context.
+
+        While active, timezone lookups during parsing resolve against
+        this instance instead of the shared default. Contexts can be
+        nested and are local to the current thread of execution.
+        """
+        self.__context_tokens.append(_CURRENT_TZP.set(self))
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        """Deactivate this context, restoring the previously active one."""
+        _CURRENT_TZP.reset(self.__context_tokens.pop())
+
+    def release(self) -> None:
+        """Release the timezones cached privately by this context.
+
+        Custom timezones created from ``VTIMEZONE`` components are
+        forgotten. System timezones provided by the underlying
+        implementation are unaffected. After release, this context can
+        still be used; it simply starts with an empty private cache again.
+        """
+        self.__tz_cache.clear()
 
     def use_pytz(self) -> None:
         """Use pytz as the timezone provider."""

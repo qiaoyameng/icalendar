@@ -81,7 +81,10 @@ class LazyCalendarIcalParser(ComponentIcalParser):
             content_lines: The content lines of the subcomponent.
         """
         return ComponentIcalParser(
-            content_lines, self._component_factory, self._types_factory
+            content_lines,
+            self._component_factory,
+            self._types_factory,
+            tzp=self._tzp,
         )
 
     def prepare_components(self):

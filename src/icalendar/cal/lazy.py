@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from icalendar.cal import Component
     from icalendar.parser.ical.component import ComponentIcalParser
     from icalendar.parser.ical.lazy import LazySubcomponent
+    from icalendar.timezone import TZP
 
 
 class ParsedSubcomponentsStrategy:
@@ -309,10 +310,12 @@ class LazyCalendar(Calendar):
         self._subcomponents = self._subcomponents.set_components(value)
 
     @classmethod
-    def _get_ical_parser(cls, st: str | bytes) -> ComponentIcalParser:
+    def _get_ical_parser(
+        cls, st: str | bytes, tzp: TZP | None = None
+    ) -> ComponentIcalParser:
         """Get the iCal parser for the given input string."""
         return LazyCalendarIcalParser(
-            st, cls._get_component_factory(), cls.types_factory
+            st, cls._get_component_factory(), cls.types_factory, tzp=tzp
         )
 
     @classmethod
