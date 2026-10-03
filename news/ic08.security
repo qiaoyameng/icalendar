@@ -1,0 +1,1 @@
+Added ``export_busy_time_calendar()`` to publish a whitelisted free/busy calendar with stable HMAC-mapped UIDs and TZIDs while omitting descriptive content, alarms, attachments, relationships, and unknown properties.

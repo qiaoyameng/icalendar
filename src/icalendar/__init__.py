@@ -45,6 +45,7 @@ from icalendar.error import (
     JCalParsingError,
     LocalTimezoneMissing,
 )
+from icalendar.freebusy import FloatingTimePolicy, export_busy_time_calendar
 
 # Parameters and helper methods for splitting and joining string with escaped
 # chars.
@@ -127,6 +128,7 @@ __all__ = [
     "Conference",
     "Event",
     "FeatureWillBeRemovedInFutureVersion",
+    "FloatingTimePolicy",
     "FreeBusy",
     "GloballyUniqueTZIDGuessed",
     "ICalParsingError",
@@ -181,6 +183,7 @@ __all__ = [
     "vUri",
     "vWeekday",
     "vXmlReference",
+    "export_busy_time_calendar",
     "version",
     "version_tuple",
 ]
