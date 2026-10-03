@@ -20,13 +20,17 @@ from icalendar.attr import (
 )
 from icalendar.cal.component import Component
 from icalendar.cal.examples import get_example
+from icalendar.cal.recurrence_split import (
+    SplitRecurringEventResult,
+    split_recurring_event,
+)
 from icalendar.cal.timezone import Timezone
 from icalendar.error import IncompleteComponent
 from icalendar.parser.ical.calendar import CalendarIcalParser
 from icalendar.version import __version__
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Callable, Iterable, Mapping, Sequence
     from datetime import date, datetime
     from pathlib import Path
 
@@ -194,6 +198,22 @@ class Calendar(Component):
         New Year's Day
         """
         return self.walk("VEVENT")
+
+    def split_recurring_event(
+        self,
+        uid: str,
+        recurrence_id: date | datetime,
+        new_uid: str,
+        properties: Mapping[str, object] | Callable[[Event], None] | None = None,
+    ) -> SplitRecurringEventResult:
+        """Split the recurring ``VEVENT`` series identified by ``uid``.
+
+        The occurrence identified by the original ``RECURRENCE-ID`` and all
+        later occurrences become a second series with ``new_uid``. The
+        operation validates and rewrites RRULE, RDATE, EXDATE, and exception
+        components; it does not create or send scheduling messages.
+        """
+        return split_recurring_event(self, uid, recurrence_id, new_uid, properties)
 
     @property
     def todos(self) -> list[Todo]:

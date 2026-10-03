@@ -14,6 +14,7 @@ from .event import Event
 from .free_busy import FreeBusy
 from .journal import Journal
 from .lazy import LazyCalendar
+from .recurrence_split import RecurrenceSplitError, SplitRecurringEventResult
 from .timezone import Timezone, TimezoneDaylight, TimezoneStandard
 from .todo import Todo
 
@@ -28,6 +29,8 @@ __all__ = [
     "FreeBusy",
     "Journal",
     "LazyCalendar",
+    "RecurrenceSplitError",
+    "SplitRecurringEventResult",
     "Timezone",
     "TimezoneDaylight",
     "TimezoneStandard",

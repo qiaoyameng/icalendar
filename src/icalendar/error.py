@@ -56,6 +56,10 @@ class BrokenCalendarProperty(InvalidCalendar):
     """
 
 
+class RecurrenceSplitError(InvalidCalendar):
+    """A recurrence series cannot be split without changing its semantics."""
+
+
 class IncompleteComponent(ValueError):
     """The component is missing attributes.
 

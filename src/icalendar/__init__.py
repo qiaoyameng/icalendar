@@ -44,6 +44,7 @@ from icalendar.error import (
     InvalidCalendar,
     JCalParsingError,
     LocalTimezoneMissing,
+    RecurrenceSplitError,
 )
 
 # Parameters and helper methods for splitting and joining string with escaped
@@ -105,6 +106,7 @@ __all__ = [
     "FBTYPE",
     "PARTSTAT",
     "RANGE",
+    "RecurrenceSplitError",
     "RELATED",
     "RELTYPE",
     "ROLE",
