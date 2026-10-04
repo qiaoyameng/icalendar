@@ -53,6 +53,14 @@ from icalendar.parser import (
     q_join,
     q_split,
 )
+from icalendar.recurrence import (
+    EventInstance,
+    ExpansionResult,
+    FloatingTimeError,
+    RecurrenceConflictError,
+    RecurrenceError,
+    expand_instances,
+)
 
 # Property Data Value Types
 from icalendar.prop import (
@@ -126,6 +134,9 @@ __all__ = [
     "ComponentStartMissing",
     "Conference",
     "Event",
+    "EventInstance",
+    "ExpansionResult",
+    "FloatingTimeError",
     "FeatureWillBeRemovedInFutureVersion",
     "FreeBusy",
     "GloballyUniqueTZIDGuessed",
@@ -140,6 +151,8 @@ __all__ = [
     "LocalTimezoneMissing",
     "NFields",
     "Parameters",
+    "RecurrenceConflictError",
+    "RecurrenceError",
     "Timezone",
     "TimezoneDaylight",
     "TimezoneStandard",
@@ -147,6 +160,7 @@ __all__ = [
     "TypesFactory",
     "__version__",
     "__version_tuple__",
+    "expand_instances",
     "is_utc",
     "q_join",
     "q_split",
