@@ -142,21 +142,29 @@ class ComponentIcalParser:
     def parse_content_lines(self) -> None:
         """Parse the content lines."""
         for line in self._content_lines_iterator:
-            if not line:
-                continue
-            try:
-                name, params, vals = line.parts()
-            except ValueError as e:
-                self.handle_line_parse_error(e)
-                continue
+            self.handle_content_line(line)
 
-            uname = name.upper()
-            if uname == "BEGIN":
-                self.handle_begin_component(vals)
-            elif uname == "END":
-                self.handle_end_component(vals)
-            else:
-                self.handle_property(uname, params, vals, line)
+    def handle_content_line(self, line: Contentline) -> None:
+        """Parse a single unfolded content line.
+
+        This is extracted from :meth:`parse_content_lines` so that
+        incremental parsers can drive the parser line by line.
+        """
+        if not line:
+            return
+        try:
+            name, params, vals = line.parts()
+        except ValueError as e:
+            self.handle_line_parse_error(e)
+            return
+
+        uname = name.upper()
+        if uname == "BEGIN":
+            self.handle_begin_component(vals)
+        elif uname == "END":
+            self.handle_end_component(vals)
+        else:
+            self.handle_property(uname, params, vals, line)
 
     @property
     def component(self) -> Component | None:

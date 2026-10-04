@@ -135,6 +135,19 @@ class TZP:
         """
         return tzid.strip("/")
 
+    def knows_timezone(self, tz_id: str) -> bool:
+        """Return whether ``tz_id`` can currently be resolved to a timezone.
+
+        Unlike :meth:`timezone`, this is a quiet check: it neither emits
+        warnings nor modifies the cache. It is used to detect
+        forward-referenced ``VTIMEZONE`` definitions while parsing.
+        """
+        return any(
+            lookup_id in self.__tz_cache
+            or self.__provider.knows_timezone_id(lookup_id)
+            for lookup_id, _is_global_guess in self._lookup_ids(tz_id)
+        )
+
     def timezone(self, tz_id: str) -> datetime.tzinfo | None:
         """Return a timezone with an ID or ``None`` if we can't find it.
 
