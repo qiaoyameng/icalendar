@@ -53,6 +53,14 @@ from icalendar.parser import (
     q_join,
     q_split,
 )
+from icalendar.parser.ical.stream import (
+    IncompleteStreamError,
+    StreamingCalendarParser,
+    StreamLimitError,
+    StreamLimits,
+    StreamParseError,
+    StreamStateError,
+)
 
 # Property Data Value Types
 from icalendar.prop import (
@@ -133,6 +141,7 @@ __all__ = [
     "Image",
     "IncompleteAlarmInformation",
     "IncompleteComponent",
+    "IncompleteStreamError",
     "InvalidCalendar",
     "JCalParsingError",
     "Journal",
@@ -140,6 +149,11 @@ __all__ = [
     "LocalTimezoneMissing",
     "NFields",
     "Parameters",
+    "StreamLimitError",
+    "StreamLimits",
+    "StreamParseError",
+    "StreamStateError",
+    "StreamingCalendarParser",
     "Timezone",
     "TimezoneDaylight",
     "TimezoneStandard",

@@ -23,6 +23,7 @@ from icalendar.cal.examples import get_example
 from icalendar.cal.timezone import Timezone
 from icalendar.error import IncompleteComponent
 from icalendar.parser.ical.calendar import CalendarIcalParser
+from icalendar.parser.ical.stream import StreamingCalendarParser, StreamLimits
 from icalendar.version import __version__
 
 if TYPE_CHECKING:
@@ -175,6 +176,42 @@ class Calendar(Component):
         """
         return cast(
             "Calendar | list[Calendar]", super().from_ical(st, multiple=multiple)
+        )
+
+    @classmethod
+    def streaming_parser(
+        cls, limits: StreamLimits | None = None
+    ) -> StreamingCalendarParser:
+        """Create a streaming parser for iCalendar data that arrives in chunks.
+
+        This is the incremental counterpart to :meth:`from_ical`: feed the
+        input in chunks of any size and process each top-level calendar
+        subcomponent as soon as it is complete.
+
+        Parameters:
+            limits: The resource limits to enforce, see
+                :class:`icalendar.parser.ical.stream.StreamLimits`.
+
+        Returns:
+            A new :class:`icalendar.parser.ical.stream.StreamingCalendarParser`.
+
+        Example:
+
+            .. code-block:: pycon
+
+                >>> from icalendar import Calendar
+                >>> parser = Calendar.streaming_parser()
+                >>> parser.feed(b"BEGIN:VCALENDAR\\r\\nBEGIN:VEVENT\\r\\nUID:1\\r\\nEND:VEVENT\\r\\n")
+                []
+                >>> parser.feed(b"END:VCALENDAR\\r\\n")
+                [VEVENT({'UID': vText(b'1')})]
+                >>> parser.finish()
+                [VCALENDAR({})]
+        """
+        return StreamingCalendarParser(
+            component_factory=cls._get_component_factory(),
+            types_factory=cls.types_factory,
+            limits=limits,
         )
 
     @property
