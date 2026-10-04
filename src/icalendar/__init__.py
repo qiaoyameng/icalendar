@@ -45,6 +45,7 @@ from icalendar.error import (
     JCalParsingError,
     LocalTimezoneMissing,
 )
+from icalendar.expansion import EventExpansion, EventInstance, expand_events
 
 # Parameters and helper methods for splitting and joining string with escaped
 # chars.
@@ -126,6 +127,8 @@ __all__ = [
     "ComponentStartMissing",
     "Conference",
     "Event",
+    "EventExpansion",
+    "EventInstance",
     "FeatureWillBeRemovedInFutureVersion",
     "FreeBusy",
     "GloballyUniqueTZIDGuessed",
@@ -150,6 +153,7 @@ __all__ = [
     "is_utc",
     "q_join",
     "q_split",
+    "expand_events",
     "use_pytz",
     "use_zoneinfo",
     "vAdr",
